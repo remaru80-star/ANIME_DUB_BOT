@@ -1,4 +1,5 @@
 import asyncio
+import re
 
 import anilist_client
 import animeschedule_client
@@ -17,51 +18,75 @@ def _mal_uri(mal_id):
     return f"https://myanimelist.net/anime/{mal_id}" if mal_id else None
 
 
-async def _count_prequel_chain(media: dict, max_depth: int = 20) -> int:
-    """Walks the PREQUEL chain backward via the AniList API to count how
-    many same-format entries precede this one.
+_ROMAN_NUMERALS = {
+    "I": 1, "II": 2, "III": 3, "IV": 4, "V": 5,
+    "VI": 6, "VII": 7, "VIII": 8, "IX": 9, "X": 10,
+    "XI": 11, "XII": 12, "XIII": 13, "XIV": 14, "XV": 15,
+}
 
-    `media["relations"]` only contains this entry's own *immediate*
-    PREQUEL/SEQUEL edge, not the whole franchise chain — so checking it
-    once only ever tells you "does a prior season exist? yes/no", which
-    is why the old version returned "Season 02" for every non-first
-    season regardless of how many came before it. To get an actual
-    count we have to follow the chain one hop at a time, re-fetching
-    each prequel's own relations, until an entry has no further PREQUEL.
+
+def _roman_to_int(token: str):
+    return _ROMAN_NUMERALS.get(token.upper())
+
+
+def _season_from_title(title: str):
+    """Parses a season number directly out of a title string, checked
+    in priority order:
+      1. "Season 3" / "season III"    -> explicit word + arabic/roman number
+      2. "S3" / "S03"                 -> abbreviated form
+      3. "3rd Season" / "2nd season"  -> ordinal + word
+      4. a trailing bare number, e.g. "... Reincarnation 3"
+      5. a trailing roman numeral, e.g. "... Reincarnation III"
+    Returns None if nothing matches (caller defaults to Season 1).
     """
-    count = 1
-    current = media
-    depth = 0
-    while depth < max_depth:
-        prequel_id = None
-        for edge in (current.get("relations") or {}).get("edges", []):
-            node = edge.get("node") or {}
-            if edge.get("relationType") == "PREQUEL" and node.get("format") == media.get("format"):
-                prequel_id = node.get("id")
-                break
-        if not prequel_id:
-            break
-        current = await anilist_client.fetch_media_by_id(prequel_id)
-        if not current:
-            break
-        count += 1
-        depth += 1
-        await asyncio.sleep(0.1)  # be polite to AniList during the chain walk
-    return count
+    if not title:
+        return None
+    title = title.strip()
+
+    m = re.search(r"\bseason\s+([IVXLCDM]+|\d+)\b", title, re.IGNORECASE)
+    if m:
+        token = m.group(1)
+        return int(token) if token.isdigit() else _roman_to_int(token)
+
+    m = re.search(r"\bS(\d{1,2})\b", title)
+    if m:
+        return int(m.group(1))
+
+    m = re.search(r"\b(\d{1,2})(?:st|nd|rd|th)\s+season\b", title, re.IGNORECASE)
+    if m:
+        return int(m.group(1))
+
+    m = re.search(r"(\d{1,2})\s*$", title)
+    if m:
+        return int(m.group(1))
+
+    m = re.search(r"\b([IVXLCDM]{1,6})\s*$", title, re.IGNORECASE)
+    if m:
+        val = _roman_to_int(m.group(1))
+        if val:
+            return val
+
+    return None
 
 
 async def _derive_season_label(media: dict) -> str:
-    """AniList has no native cour/season numbering — each season is a
-    separate Media entry linked via relations, chained together one
-    hop at a time. We estimate the season number by walking that
-    PREQUEL chain back to its start.
+    """AniList has no native cour/season numbering, and walking the
+    PREQUEL relation chain turned out to be unreliable — side stories,
+    OVAs, or alt-format entries chained in with a PREQUEL relation
+    inflate a pure relation-count (e.g. Mushoku Tensei Season 3 was
+    coming back as "Season 05" that way). Parsing the number straight
+    out of the title text is more robust, so that's what this does now
+    — see `_season_from_title()` for the exact patterns checked.
+    Falls back to Season 1 if no pattern matches anywhere in the title.
     Treat this as a starting point, not a guarantee: override manually
-    via /edit_batch for titles where this heuristic gets it wrong (e.g.
-    a "Director's Cut" re-release tagged PREQUEL with the same format
-    would still inflate the count by one).
+    via /edit_batch for titles this still gets wrong (e.g. a title with
+    no season marker at all, like "... Final Season").
     """
-    count = await _count_prequel_chain(media)
-    return f"Season {count:02d}"
+    title = (media.get("title") or {}).get("english") or (media.get("title") or {}).get("romaji") or ""
+    season_num = _season_from_title(title)
+    if season_num is None:
+        season_num = 1
+    return f"Season {season_num:02d}"
 
 
 async def _build_doc_fields(media: dict, dub_entry: dict, mal_score) -> dict:
