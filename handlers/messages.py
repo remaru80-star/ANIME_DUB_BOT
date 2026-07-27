@@ -38,6 +38,8 @@ async def state_router(client, message: Message):
         await _handle_thumbnail_update(client, message, st["anilist_id"])
     elif action == "awaiting_episode":
         await _handle_episode_update(message, st["anilist_id"])
+    elif action == "awaiting_season":
+        await _handle_season_update(message, st["anilist_id"])
     elif action == "awaiting_sub_channel":
         await _handle_sub_channel_update(message, st["anilist_id"])
     elif action == "awaiting_new_batch_anilist_id":
@@ -95,6 +97,16 @@ async def _handle_episode_update(message: Message, anilist_id: int):
     await batches.update_one({"anilist_id": anilist_id}, {"$set": {"last_uploaded_episode": ep}})
     state.clear_state(message.from_user.id)
     await message.reply(f"Last uploaded episode set to {ep}.")
+
+
+async def _handle_season_update(message: Message, anilist_id: int):
+    if not message.text or not message.text.strip().isdigit():
+        return await message.reply("Please send a valid season number (e.g. 3).")
+    season_num = int(message.text.strip())
+    season_label = f"{season_num:02d}"
+    await batches.update_one({"anilist_id": anilist_id}, {"$set": {"season": season_label}})
+    state.clear_state(message.from_user.id)
+    await message.reply(f"Season set to {season_label}.")
 
 
 async def _handle_sub_channel_update(message: Message, anilist_id: int):
