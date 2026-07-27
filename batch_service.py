@@ -86,7 +86,7 @@ async def _derive_season_label(media: dict) -> str:
     season_num = _season_from_title(title)
     if season_num is None:
         season_num = 1
-    return f"Season {season_num:02d}"
+    return f"{season_num:02d}"
 
 
 async def _build_doc_fields(media: dict, dub_entry: dict, mal_score) -> dict:
