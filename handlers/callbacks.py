@@ -115,6 +115,14 @@ async def set_ep_cb(client, cq: CallbackQuery):
     await cq.answer()
 
 
+@app.on_callback_query(filters.regex(r"^set_season:(-?\d+)$"))
+async def set_season_cb(client, cq: CallbackQuery):
+    anilist_id = int(cq.matches[0].group(1))
+    state.set_state(cq.from_user.id, action="awaiting_season", anilist_id=anilist_id)
+    await cq.message.reply("Send the correct season number (e.g. 3).")
+    await cq.answer()
+
+
 @app.on_callback_query(filters.regex(r"^set_sub:(-?\d+)$"))
 async def set_sub_cb(client, cq: CallbackQuery):
     anilist_id = int(cq.matches[0].group(1))
