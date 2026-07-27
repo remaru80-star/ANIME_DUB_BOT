@@ -38,6 +38,7 @@ def batch_edit_menu(anilist_id: int) -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton("🖼 Update Thumbnail", callback_data=f"set_thumb:{anilist_id}")],
         [InlineKeyboardButton("📺 Update Last Uploaded Episode", callback_data=f"set_ep:{anilist_id}")],
+        [InlineKeyboardButton("🔢 Update Season", callback_data=f"set_season:{anilist_id}")],
         [InlineKeyboardButton("🔗 Update Sub Channel", callback_data=f"set_sub:{anilist_id}")],
         [InlineKeyboardButton("⬅️ Back to list", callback_data="edit_page:1")],
     ]
