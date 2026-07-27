@@ -1,0 +1,42 @@
+{
+    "_id": ObjectId(...),
+
+    
+    # ---- External IDs + URIs ----
+    "anilist_id": int,
+    "anilist_uri": str,            # e.g. https://anilist.co/anime/{anilist_id}
+    "mal_id": int,
+    "mal_uri": str,                # e.g. https://myanimelist.net/anime/{mal_id}
+    "animeschedule_id": str,
+    "animeschedule_uri": str,      # e.g. https://animeschedule.net/anime/{slug}
+    ...
+
+    # ---- Metadata (from AniList) ----
+    "english_title": str,
+    "japanese_title": str,
+    "type": str,                    # TV, Movie, OVA, etc.
+    "genres": [str],
+    "synopsis": str,
+    "runtime": int,                 # minutes/episode
+    "total_episodes": int,
+    "season": str,                  # "Season 01"
+    "status": str,                  # RELEASING / FINISHED
+    "mal_rating": float,            # needed for your sort-by-rating views
+
+    # ---- Dub tracking (from animeschedule.net) ----
+    "audio": str,                   # "English Dub"
+    "last_dub_episode": int,        # source of truth from animeschedule.net
+
+    # ---- Your pipeline state ----
+    "last_uploaded_episode": int,   # defaults to last_dub_episode, user-editable
+    "searching": bool,              # start/stop toggle for this batch
+
+    # ---- Telegram-specific ----
+    "anilist_thumbnail_url": str,           # original AniList URL, kept for reference
+    "telegram_thumbnail_path": str,         # message link after upload to thumbnail channel
+    "telegram_sub_channel_link": str,
+
+    # ---- Housekeeping ----
+    "created_at": datetime,
+    "updated_at": datetime
+}
